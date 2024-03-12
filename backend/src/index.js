@@ -1,0 +1,75 @@
+import dotenv from 'dotenv';
+dotenv.config();
+import express from 'express'
+import cors from 'cors'
+import * as RecipeAPI from './recipe-api.js';
+import { PrismaClient } from '@prisma/client';
+const app = express();
+const prismaClient = new PrismaClient();
+app.use(express.json())
+app.use(cors())
+
+
+app.get('/api/recipes/search', async(req, res) => {
+    const searchTerm = req.query.searchTerm;
+    const page = req.query.page;
+    const results = await RecipeAPI.searchRecipes(searchTerm, page);
+    return res.json(results)
+})
+
+app.get('/api/recipes/:recipeId/summary', async(req, res) => {
+    console.log('salam');
+    const recipeId = req.params.recipeId;
+    const results = await RecipeAPI.getRecipeSummary(recipeId);
+    return res.json(results)
+})
+
+app.post('/api/recipes/favourite', async(req, res) => {
+    const recipeId = req.body.recipeId;
+    console.log('post is active', req.body);
+    try {
+        const favouriteRecipe = await prismaClient.favouruteRecipes.create({
+            data: {
+                recipeId
+            }
+        })
+        return res.status(201).json(favouriteRecipe)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: 'sth went wrong' })
+    }
+})
+
+app.get('/api/recipes/favourite', async(req, res) => {
+
+    try {
+        const recipes = await prismaClient.favouruteRecipes.findMany();
+        const recipeIds = recipes.map((recipe) => recipe.recipeId.toString())
+        const favourites = await RecipeAPI.getFavouriteRecipiesByIds(recipeIds)
+        return res.json(favourites)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: 'sth went wrong' })
+    }
+})
+
+app.delete('/api/recipes/favourite', async(req, res) => {
+    const recipeId = req.body.recipeId;
+
+    try {
+        await prismaClient.favouruteRecipes.delete({
+            where: {
+                recipeId: recipeId
+            }
+        })
+
+        res.status(204).send('ok')
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: 'sth went wrong' })
+    }
+})
+
+app.listen(3005, () => {
+    console.log('server is listenning');
+})
